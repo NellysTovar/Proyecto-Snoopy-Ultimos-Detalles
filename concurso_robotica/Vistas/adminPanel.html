@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Gestión de Torneo</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+
+    <link rel="stylesheet" href="../Diseño/style_admin.css">
+    <style>
+        .gradient-header { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-[#f8f9fa]">
+
+    <header class="gradient-header text-white shadow-lg z-20 shrink-0">
+        <div class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                    <i class="fa-solid fa-user-shield text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide">ADMINISTRACIÓN</h1>
+                    <p class="text-xs text-white/80 font-medium">Gestión del Concurso</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden md:block">
+                    <p class="text-sm font-bold" id="adminName">Administrador</p>
+                    <p class="text-[10px] bg-green-400/20 px-2 py-0.5 rounded-full inline-block text-green-100 border border-green-400/30">
+                        <i class="fa-solid fa-circle text-[6px] mr-1 align-middle text-green-400"></i>Sesión Activa
+                    </p>
+                </div>
+                
+                <a href="reportes.html" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm font-bold border border-white/10">
+                    <i class="fa-solid fa-chart-line"></i> <span class="hidden md:inline">Reportes</span>
+                </a>
+                 
+                <button onclick="handleLogout()" class="bg-red-500/20 hover:bg-red-500/40 p-2 rounded-lg transition-colors border border-red-500/30 text-red-100" title="Cerrar Sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <aside class="w-64 bg-white border-r border-gray-200 flex-col hidden md:flex z-10 shadow-sm">
+            <div class="p-6">
+                <p class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Menú Principal</p>
+                <nav class="space-y-2">
+                    <button onclick="window.location.reload()" class="w-full text-left px-4 py-3 rounded-xl bg-indigo-50 text-indigo-600 font-bold border-l-4 border-indigo-600 shadow-sm flex items-center gap-3 transition-all">
+                        <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+                    </button>
+                    
+                    <a href="gestionEvento.html" class="nav-item w-full text-left px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 hover:text-indigo-600 flex items-center gap-3 transition-colors">
+                        <i class="fa-solid fa-calendar-check w-5 text-center"></i> Gestionar Eventos
+                    </a>
+                    
+                    <a href="promoverJuez.html" class="nav-item w-full text-left px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 hover:text-indigo-600 flex items-center gap-3 transition-colors">
+                        <i class="fa-solid fa-user-graduate w-5 text-center"></i> Promover Juez
+                    </a>
+
+                    <a href="reportes.html" class="nav-item w-full text-left px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 hover:text-indigo-600 flex items-center gap-3 transition-colors">
+                        <i class="fa-solid fa-file-invoice w-5 text-center"></i> Reportes
+                    </a>
+                </nav>
+            </div>
+            
+            <div class="mt-auto p-6 border-t border-gray-100">
+                <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <h4 class="text-xs font-bold text-blue-800 mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-server"></i> Estado del Sistema
+                    </h4>
+                    <p class="text-[10px] text-blue-600">Base de datos: <span class="font-bold text-green-600">● Conectada</span></p>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto p-8 relative">
+            <div id="loaderOverlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+                <div class="loader"></div>
+            </div>
+
+            <section class="animate-fade-in space-y-8">
+                <div class="flex justify-between items-end border-b border-gray-200 pb-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800">Bienvenido al Sistema</h2>
+                        <p class="text-sm text-gray-500 mt-1">Seleccione una acción rápida para comenzar.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <a href="gestionEvento.html" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all group cursor-pointer relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 text-2xl group-hover:rotate-12 transition-transform shadow-sm">
+                                <i class="fa-solid fa-trophy"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">Eventos</h3>
+                                <p class="text-xs text-gray-500">Crear o eliminar competencias</p>
+                            </div>
+                            <div class="ml-auto text-gray-300 group-hover:text-blue-600 transition-colors">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </div>
+                        </div>
+                    </a>
+
+                    <a href="promoverJuez.html" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all group cursor-pointer relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600 text-2xl group-hover:rotate-12 transition-transform shadow-sm">
+                                <i class="fa-solid fa-users-gear"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-lg group-hover:text-purple-600 transition-colors">Jueces</h3>
+                                <p class="text-xs text-gray-500">Asignar roles a Coaches</p>
+                            </div>
+                            <div class="ml-auto text-gray-300 group-hover:text-purple-600 transition-colors">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </div>
+                        </div>
+                    </a>
+
+                    <a href="reportes.html" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all group cursor-pointer relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 text-2xl group-hover:rotate-12 transition-transform shadow-sm">
+                                <i class="fa-solid fa-chart-pie"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-lg group-hover:text-indigo-600 transition-colors">Reportes</h3>
+                                <p class="text-xs text-gray-500">Estadísticas y Rankings</p>
+                            </div>
+                            <div class="ml-auto text-gray-300 group-hover:text-indigo-600 transition-colors">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let auth = null;
+
+        try {
+            const configParam = new URLSearchParams(window.location.search).get('firebaseConfig');
+            
+            if (configParam) {
+                const firebaseConfig = JSON.parse(configParam);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (!user) signInAnonymously(auth).catch(console.error);
+                });
+            }
+        } catch (error) {
+            console.error("Error inicializando Firebase:", error);
+        }
+
+        // --- FUNCIÓN DE LOGOUT HÍBRIDA (FIREBASE + PHP) ---
+        window.handleLogout = () => {
+            const irALogoutPHP = () => {
+                window.location.href = '../Configuracion/logout.php';
+            };
+
+            if (auth) {
+                signOut(auth)
+                    .then(irALogoutPHP)
+                    .catch((error) => {
+                        console.warn("Error cerrando Firebase, forzando salida PHP...", error);
+                        irALogoutPHP();
+                    });
+            } else {
+                irALogoutPHP();
+            }
+        };
+    </script>
+</body>
+</html>
