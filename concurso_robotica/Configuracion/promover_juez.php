@@ -65,7 +65,7 @@ try {
             $idUsuario = $input['id'];
             $nuevoRol = $input['rol'];
 
-            // MODIFICADO: Reemplazado UPDATE directo por CALL al nuevo SP
+            
             $stmt = $pdo->prepare("CALL ActualizarRolUsuario(:id, :rol)");
             $stmt->bindParam(':rol', $nuevoRol);
             $stmt->bindParam(':id', $idUsuario);
@@ -87,7 +87,7 @@ try {
             $idJuez = $input['id_juez'];
             $idCategoria = $input['id_categoria'];
 
-            // MODIFICADO: Fetch directo
+            
             $stmt = $pdo->prepare("CALL AsignarJuezEvento(:ide, :idj, :idc)");
             $stmt->bindParam(':ide', $idEvento);
             $stmt->bindParam(':idj', $idJuez);

@@ -8,7 +8,7 @@ $response = ["success" => false, "message" => "Error desconocido"];
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $input = json_decode(file_get_contents('php://input'), true);
 
-    // Limpieza básica
+    
     $nombres = isset($input['nombres']) ? trim($input['nombres']) : '';
     $apellidos = isset($input['apellidos']) ? trim($input['apellidos']) : '';
     $escuela = isset($input['escuela']) ? trim($input['escuela']) : '';
@@ -16,14 +16,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = isset($input['password']) ? trim($input['password']) : '';
     $tipoUsuario = isset($input['tipoUsuario']) ? trim($input['tipoUsuario']) : '';
 
-    // 1. VALIDACIÓN PHP DE CAMPOS OBLIGATORIOS
+    
     if (empty($nombres) || empty($apellidos) || empty($escuela) || empty($email) || empty($password) || empty($tipoUsuario)) {
         echo json_encode(["success" => false, "message" => "Todos los campos son obligatorios."]);
         exit;
     }
 
-    // 2. VALIDACIÓN ESTRICTA: NOMBRES Y APELLIDOS (Solo letras y espacios)
-    // No permite números ni caracteres especiales como @, #, $, etc.
+    
+    
     if (!preg_match("/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/", $nombres)) {
         echo json_encode(["success" => false, "message" => "El Nombre contiene caracteres inválidos (números o símbolos). Solo se permiten letras."]);
         exit;
@@ -37,7 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     try {
         $passwordHash = $password; 
 
-        // 3. LLAMADA AL PROCEDIMIENTO (La validación de nombres DUPLICADOS se hace en SQL)
+        
         $stmt = $pdo->prepare("CALL RegistrarUsuario(:email, :pass, :nombres, :apellidos, :tipo, :escuela)");
         $stmt->bindParam(':email', $email, PDO::PARAM_STR);
         $stmt->bindParam(':pass', $passwordHash, PDO::PARAM_STR);
@@ -57,7 +57,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $response["success"] = true;
             $response["message"] = "Registro completado con éxito. Redirigiendo...";
         } else {
-            // Aquí capturamos el error de SQL si el nombre está duplicado
+            
             $response["success"] = false;
             $response["message"] = $mensajeDB;
         }

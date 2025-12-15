@@ -23,12 +23,11 @@ try {
 
     $method = $_SERVER['REQUEST_METHOD'];
     
-    // --- PETICIONES GET ---
     if ($method === 'GET') {
         $action = $_GET['action'] ?? '';
 
         if ($action === 'listar_equipos') {
-            // SP que lista los equipos de este coach
+           
             $stmt = $pdo->prepare("CALL ListarDetalleEquiposPorCoach(:id)");
             $stmt->bindParam(':id', $idCoach, PDO::PARAM_INT);
             $stmt->execute();
@@ -38,8 +37,6 @@ try {
         elseif ($action === 'listar_integrantes') {
             $idEquipo = $_GET['id_equipo'] ?? 0;
             
-            // CORRECCIÓN: Eliminada la consulta SQL directa.
-            // Ahora pasamos el $idCoach al SP para que la BD filtre por seguridad.
             $stmt = $pdo->prepare("CALL ListarIntegrantesPorEquipo(:idEquipo, :idCoach)");
             $stmt->bindParam(':idEquipo', $idEquipo, PDO::PARAM_INT);
             $stmt->bindParam(':idCoach', $idCoach, PDO::PARAM_INT);
@@ -50,7 +47,7 @@ try {
         }
     }
 
-    // --- PETICIONES POST ---
+
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         $action = $input['action'] ?? '';
@@ -61,7 +58,7 @@ try {
             $idEvento = $input['id_evento'];
             $idCategoria = $input['id_categoria'];
 
-            // Se usa $idCoach de la SESIÓN para asegurar propiedad
+          
             $stmt = $pdo->prepare("CALL RegistrarEquipo(:nom, :proto, :ev, :cat, :coach)");
             $stmt->bindParam(':nom', $nombre);
             $stmt->bindParam(':proto', $prototipo);
@@ -85,12 +82,11 @@ try {
             $edad = $input['edad'];
             $grado = $input['grado'];
 
-            // Validación regex en PHP (Lógica de negocio simple, no SQL)
+    
             if (!preg_match("/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/", $nombre)) {
                 throw new Exception("El nombre del integrante contiene caracteres inválidos. Solo letras.");
             }
 
-            // SP recibe el ID del coach para validar que el equipo sea suyo antes de insertar
             $stmt = $pdo->prepare("CALL AgregarIntegrante(:ide, :nom, :edad, :grado, :idCoachSolicitante)");
             $stmt->bindParam(':ide', $idEquipo);
             $stmt->bindParam(':nom', $nombre);
@@ -111,7 +107,7 @@ try {
         elseif ($action === 'eliminar_integrante') {
             $idIntegrante = $input['id_integrante'];
 
-            // SP recibe ID del coach para validar propiedad
+
             $stmt = $pdo->prepare("CALL EliminarIntegrante(:idi, :idc)");
             $stmt->bindParam(':idi', $idIntegrante);
             $stmt->bindParam(':idc', $idCoach);

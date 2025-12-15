@@ -30,14 +30,12 @@ try {
             $fecha  = $input['fecha'];
             $lugar  = $input['lugar'];
 
-            // MODIFICADO: CALL directo sin variables OUT
             $stmt = $pdo->prepare("CALL CrearEvento(:nombre, :fecha, :lugar)");
             $stmt->bindParam(':nombre', $nombre);
             $stmt->bindParam(':fecha', $fecha);
             $stmt->bindParam(':lugar', $lugar);
             $stmt->execute();
             
-            // MODIFICADO: Recuperar mensaje del SELECT interno del SP
             $res = $stmt->fetch(PDO::FETCH_ASSOC);
             $stmt->closeCursor();
             

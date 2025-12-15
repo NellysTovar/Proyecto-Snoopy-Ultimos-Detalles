@@ -14,13 +14,13 @@ foreach ($ports as $port) {
         $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8";
         $pdo = new PDO($dsn, $user, $pass);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        // Si conecta exitosamente, salimos del bucle
+        
         break; 
     } catch (PDOException $e) {
         $errorConexion = $e->getMessage();
-        continue; // Intentar siguiente puerto
+        continue; 
     }
 }
 
-// NOTA: No usamos die() aquí para permitir que la API maneje el error elegantemente.
+
 ?>

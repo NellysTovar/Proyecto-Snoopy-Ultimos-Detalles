@@ -92,10 +92,9 @@ INSERT INTO usuarios(email,password_hash,nombres,apellidos,escuela_proc,tipo_usu
 ('admin@robotica.com','admin123','Admin','Sistema','SISTEMA','ADMIN');
 
 -- =============================================
--- 2. FUNCIONES (ACTUALIZADAS Y CORREGIDAS)
+-- 2. FUNCIONES 
 -- =============================================
 
--- Permite crear funciones sin errores de permisos en algunos servidores
 SET GLOBAL log_bin_trust_function_creators = 1;
 
 DELIMITER //
@@ -165,21 +164,17 @@ BEGIN
     FROM usuarios WHERE email = p_email AND (tipo_usuario = p_tipo OR tipo_usuario = 'COACH_JUEZ' OR p_tipo = 'ADMIN');
 END //
 
--- REGISTRO USUARIO (Validación de Nombres Duplicados AÑADIDA)
+-- REGISTRO USUARIO
 CREATE PROCEDURE RegistrarUsuario(
     IN p_email VARCHAR(100), IN p_password_hash VARCHAR(255),
     IN p_nombres VARCHAR(100), IN p_apellidos VARCHAR(100),
     IN p_tipo_usuario ENUM('ADMIN','JUEZ','COACH'), IN p_escuela_proc VARCHAR(150)
 )
 BEGIN
-    -- Validar Email
     IF EXISTS (SELECT 1 FROM usuarios WHERE email = p_email) THEN
         SELECT 'ERROR: El correo electrónico ya está registrado.' AS mensaje, 0 AS id;
-    
-    -- Validar Nombre Completo Duplicado (Requerimiento)
     ELSEIF EXISTS (SELECT 1 FROM usuarios WHERE nombres = p_nombres AND apellidos = p_apellidos) THEN
         SELECT 'ERROR: Ya existe un usuario registrado con ese Nombre y Apellido.' AS mensaje, 0 AS id;
-        
     ELSE
         INSERT INTO usuarios(email, password_hash, nombres, apellidos, escuela_proc, tipo_usuario)
         VALUES(p_email, p_password_hash, p_nombres, p_apellidos, p_escuela_proc, p_tipo_usuario);
@@ -216,13 +211,13 @@ BEGIN
     END IF;
 END //
 
--- AGREGAR INTEGRANTE (Validación de Propiedad y Duplicados AÑADIDA)
+-- AGREGAR INTEGRANTE
 CREATE PROCEDURE AgregarIntegrante(
     IN p_id_equipo INT, 
     IN p_nombre VARCHAR(150), 
     IN p_edad INT, 
     IN p_grado INT,
-    IN p_id_coach_solicitante INT  -- Nuevo parámetro para seguridad
+    IN p_id_coach_solicitante INT
 )
 BEGIN
     DECLARE v_total INT; 
@@ -230,7 +225,6 @@ BEGIN
     DECLARE v_escuela VARCHAR(150);
     DECLARE v_coach_real INT;
     
-    -- 1. Verificar Propiedad (Seguridad: Coach solo edita sus equipos)
     SELECT id_coach INTO v_coach_real FROM equipos WHERE id_equipo = p_id_equipo;
     
     IF v_coach_real IS NULL THEN
@@ -238,19 +232,17 @@ BEGIN
     ELSEIF v_coach_real <> p_id_coach_solicitante THEN
         SELECT 'ERROR: No tienes permiso para modificar este equipo (Pertenece a otro Coach).' AS mensaje;
     ELSE
-        -- 2. Verificar Nombres Duplicados en Integrantes
         IF EXISTS (SELECT 1 FROM integrantes WHERE nombre_completo = p_nombre) THEN
             SELECT 'ERROR: Esta persona ya está registrada como integrante en el sistema.' AS mensaje;
         ELSE
-            -- 3. Verificar Cupo
             SELECT COUNT(*) INTO v_total FROM integrantes WHERE id_equipo = p_id_equipo;
             
+		
             IF v_total >= 3 THEN 
                 SELECT 'ERROR: El equipo ya está lleno (Máximo 3 integrantes).' AS mensaje;
             ELSE
                 SELECT id_categoria, escuela_procedencia INTO v_cat, v_escuela FROM equipos WHERE id_equipo = p_id_equipo;
                 
-                -- 4. Validar Reglas de Categoría
                 IF NOT VerificarEdadCategoria(p_edad, v_cat) THEN 
                     SELECT 'ERROR: La edad del integrante no corresponde a la categoría del equipo.' AS mensaje;
                 ELSEIF NOT VerificarGradoCategoria(p_grado, v_cat) THEN 
@@ -361,7 +353,7 @@ BEGIN
     END IF;
 END //
 
--- CONSULTAS DE LISTADO (Modificado para recibir id_coach en ListarIntegrantesPorEquipo)
+-- CONSULTAS DE LISTADO
 CREATE PROCEDURE ListarDetalleEquiposPorCoach(IN p_id_coach INT)
 BEGIN
     SELECT e.id_equipo, e.nombre_equipo, e.nombre_prototipo, ev.nombre_evento, c.nombre_categoria, e.estado_proyecto,
@@ -373,7 +365,6 @@ BEGIN
     ORDER BY e.id_equipo DESC;
 END //
 
--- MODIFICADO: Ahora valida la propiedad del equipo mediante un JOIN
 CREATE PROCEDURE ListarIntegrantesPorEquipo(IN p_id_equipo INT, IN p_id_coach INT)
 BEGIN
     SELECT i.id_integrante, i.nombre_completo, i.edad, i.grado, i.escuela 
@@ -407,6 +398,8 @@ BEGIN
     SELECT DISTINCT c.nombre_categoria FROM jueces_eventos je JOIN categorias c ON je.id_categoria = c.id_categoria WHERE je.id_juez = p_id_juez;
 END //
 
+
+
 CREATE PROCEDURE Sp_Juez_ListarProyectos(IN p_id_juez INT, IN p_nombre_categoria VARCHAR(50))
 BEGIN
     DECLARE v_escuela_juez VARCHAR(150);
@@ -417,11 +410,20 @@ BEGIN
     JOIN categorias c ON e.id_categoria = c.id_categoria
     JOIN jueces_eventos je ON e.id_evento = je.id_evento AND e.id_categoria = je.id_categoria
     WHERE je.id_juez = p_id_juez AND c.nombre_categoria = p_nombre_categoria AND e.activo = TRUE
-      AND (SELECT COUNT(*) FROM integrantes i WHERE i.id_equipo = e.id_equipo) = 3
+      
+      -- VALIDACIÓN 1: El equipo debe tener EXACTAMENTE 3 integrantes.
+      AND (SELECT COUNT(*) FROM integrantes i WHERE i.id_equipo = e.id_equipo) = 3 
+
+      -- VALIDACIÓN 2: Debe haber más de 1 equipo registrado en esa categoría y evento para competir.
+      AND (SELECT COUNT(*) FROM equipos e2 WHERE e2.id_evento = e.id_evento AND e2.id_categoria = e.id_categoria AND e2.activo = TRUE) > 1
+
+      -- Filtros de conflicto de interés
       AND e.escuela_procedencia <> v_escuela_juez
       AND e.id_coach <> p_id_juez
     ORDER BY FIELD(e.estado_proyecto, 'PENDIENTE', 'EVALUADO'), e.nombre_equipo;
 END //
+
+-- ===================================================================================
 
 CREATE PROCEDURE Sp_Admin_ListarUsuariosCandidatos()
 BEGIN
@@ -453,12 +455,7 @@ DELIMITER ;
 
 DELIMITER //
 
--- =============================================
--- REPORTES ADMINISTRADOR
--- =============================================
-
--- 1. Reporte de los 3 primeros lugares (Top 3)
-
+-- REPORTES
 CREATE PROCEDURE Sp_Reporte_Top3(IN p_id_evento INT, IN p_id_categoria INT)
 BEGIN
     SELECT 
@@ -476,110 +473,6 @@ BEGIN
     LIMIT 3;
 END //
 
--- 2. Lista de Equipos por Categoría
-CREATE PROCEDURE Sp_Reporte_EquiposPorCategoria(IN p_id_evento INT, IN p_id_categoria INT)
-BEGIN
-    SELECT 
-        e.nombre_equipo,
-        e.escuela_procedencia,
-        u.nombres as nombre_coach,
-        u.apellidos as apellido_coach,
-        e.estado_proyecto
-    FROM equipos e
-    JOIN usuarios u ON e.id_coach = u.id_usuario
-    WHERE e.id_evento = p_id_evento 
-      AND e.id_categoria = p_id_categoria
-      AND e.activo = 1
-    ORDER BY e.nombre_equipo ASC;
-END //
-
--- 3. Cantidad de Equipos por Evento (Estadísticas Generales)
-CREATE PROCEDURE Sp_Reporte_ConteoPorEvento()
-BEGIN
-    SELECT 
-        ev.nombre_evento,
-        COUNT(e.id_equipo) as total_equipos,
-        SUM(CASE WHEN e.estado_proyecto = 'EVALUADO' THEN 1 ELSE 0 END) as equipos_evaluados
-    FROM eventos ev
-    LEFT JOIN equipos e ON ev.id_evento = e.id_evento AND e.activo = 1
-    WHERE ev.activo = 1
-    GROUP BY ev.id_evento
-    ORDER BY ev.fecha_evento DESC;
-END //
-
--- =============================================
--- REPORTES GENERALES (COACH / JUEZ)
--- =============================================
-
--- 4. Tabla de Puntaje Global (Ranking completo sin límite)
-CREATE PROCEDURE Sp_Reporte_TablaGlobal(IN p_id_evento INT, IN p_id_categoria INT)
-BEGIN
-    SELECT 
-        e.nombre_equipo,
-        e.escuela_procedencia,
-        CASE 
-            WHEN e.estado_proyecto = 'EVALUADO' THEN ev.puntuacion_total 
-            ELSE 'N/A' 
-        END as puntaje_final,
-        e.estado_proyecto
-    FROM equipos e
-    LEFT JOIN evaluaciones ev ON e.id_equipo = ev.id_equipo
-    WHERE e.id_evento = p_id_evento 
-      AND e.id_categoria = p_id_categoria
-      AND e.activo = 1
-    ORDER BY (ev.puntuacion_total IS NULL), ev.puntuacion_total DESC; 
-END //
-
--- 5. Detalle de Evaluación (Para el Coach - Ver su propio equipo)
--- Nota: Reutilizamos o mejoramos Sp_ObtenerDetalleEvaluacion
-CREATE PROCEDURE Sp_Reporte_DetalleMiEquipo(IN p_id_equipo INT, IN p_id_coach INT)
-BEGIN
-    -- Validamos que el equipo pertenezca al coach por seguridad
-    IF EXISTS (SELECT 1 FROM equipos WHERE id_equipo = p_id_equipo AND id_coach = p_id_coach) THEN
-        SELECT 
-            e.nombre_equipo,
-            ev.puntuacion_total,
-            ev.detalles_evaluacion, -- JSON con los criterios
-            ev.fecha_evaluacion,
-            CONCAT(j.nombres, ' ', j.apellidos) as nombre_juez
-        FROM evaluaciones ev
-        JOIN equipos e ON ev.id_equipo = e.id_equipo
-        JOIN usuarios j ON ev.id_juez = j.id_usuario
-        WHERE e.id_equipo = p_id_equipo;
-    ELSE
-        SELECT 'ERROR' as resultado;
-    END IF;
-END //
-
-DELIMITER ;
-
-DELIMITER //
-
--- =========================================================
---       1. REPORTES ADMINISTRADOR (Métricas Globales)
--- =========================================================
-
--- A. Top 3 primeros lugares por puntaje
-DROP PROCEDURE IF EXISTS Sp_Reporte_Top3 //
-CREATE PROCEDURE Sp_Reporte_Top3(IN p_id_evento INT, IN p_id_categoria INT)
-BEGIN
-    SELECT 
-        e.nombre_equipo,
-        e.nombre_prototipo,
-        e.escuela_procedencia,
-        COALESCE(ev.puntuacion_total, 0) as puntaje
-    FROM equipos e
-    JOIN evaluaciones ev ON e.id_equipo = ev.id_equipo
-    WHERE e.id_evento = p_id_evento 
-      AND e.id_categoria = p_id_categoria
-      AND e.estado_proyecto = 'EVALUADO'
-      AND e.activo = 1
-    ORDER BY ev.puntuacion_total DESC
-    LIMIT 3;
-END //
-
--- B. Lista de todos los equipos en una categoría
-DROP PROCEDURE IF EXISTS Sp_Reporte_EquiposPorCategoria //
 CREATE PROCEDURE Sp_Reporte_EquiposPorCategoria(IN p_id_evento INT, IN p_id_categoria INT)
 BEGIN
     SELECT 
@@ -595,8 +488,6 @@ BEGIN
     ORDER BY e.nombre_equipo ASC;
 END //
 
--- C. Estadística: Cantidad de equipos por evento
-DROP PROCEDURE IF EXISTS Sp_Reporte_ConteoPorEvento //
 CREATE PROCEDURE Sp_Reporte_ConteoPorEvento()
 BEGIN
     SELECT 
@@ -610,12 +501,6 @@ BEGIN
     ORDER BY ev.fecha_evento DESC;
 END //
 
--- =========================================================
---       2. REPORTES GENERALES (Tabla Global)
--- =========================================================
-
--- D. Tabla de posiciones completa (Para Coach y Juez)
-DROP PROCEDURE IF EXISTS Sp_Reporte_TablaGlobal //
 CREATE PROCEDURE Sp_Reporte_TablaGlobal(IN p_id_evento INT, IN p_id_categoria INT)
 BEGIN
     SELECT 
@@ -634,12 +519,6 @@ BEGIN
     ORDER BY (ev.puntuacion_total IS NULL), ev.puntuacion_total DESC; 
 END //
 
--- =========================================================
---       3. HERRAMIENTAS PARA COACH (Desglose)
--- =========================================================
-
--- E. [CORRECCIÓN] Listar mis equipos ya evaluados (Para el combo)
-DROP PROCEDURE IF EXISTS Sp_Coach_ListarMisEquiposEvaluados //
 CREATE PROCEDURE Sp_Coach_ListarMisEquiposEvaluados(IN p_id_coach INT)
 BEGIN
     SELECT id_equipo, nombre_equipo 
@@ -647,16 +526,13 @@ BEGIN
     WHERE id_coach = p_id_coach AND estado_proyecto = 'EVALUADO' AND activo = 1;
 END //
 
--- F. Ver el desglose detallado de mi calificación
-DROP PROCEDURE IF EXISTS Sp_Reporte_DetalleMiEquipo //
 CREATE PROCEDURE Sp_Reporte_DetalleMiEquipo(IN p_id_equipo INT, IN p_id_coach INT)
 BEGIN
-    -- Validamos propiedad por seguridad
     IF EXISTS (SELECT 1 FROM equipos WHERE id_equipo = p_id_equipo AND id_coach = p_id_coach) THEN
         SELECT 
             e.nombre_equipo,
             ev.puntuacion_total,
-            ev.detalles_evaluacion, -- JSON
+            ev.detalles_evaluacion,
             ev.fecha_evaluacion,
             CONCAT(j.nombres, ' ', j.apellidos) as nombre_juez
         FROM evaluaciones ev

@@ -12,17 +12,15 @@ try {
     $idUsuario = $_SESSION['user_id'];
     $action = $_GET['action'] ?? '';
 
-    // ====================================================
-    //  NUEVO: OBTENER CATALOGOS (ACCESIBLE PARA TODOS)
-    // ====================================================
+   =
     if ($action === 'obtener_catalogos') {
-        // 1. Eventos Activos
+        
         $stmt = $pdo->prepare("CALL Sp_AdminListarEventosActivos()");
         $stmt->execute();
         $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $stmt->closeCursor();
 
-        // 2. Categorías
+        
         $stmt = $pdo->prepare("CALL Sp_AdminListarCategorias()");
         $stmt->execute();
         $categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -35,9 +33,7 @@ try {
         exit;
     }
 
-    // ----------------------------------------------------
-    // 1. REPORTES EXCLUSIVOS DE ADMINISTRADOR
-    // ----------------------------------------------------
+
     if (in_array($action, ['admin_top3', 'admin_lista_equipos', 'admin_estadisticas'])) {
         
         if ($rol !== 'ADMIN') throw new Exception("Permisos insuficientes. Solo Administrador.");
@@ -66,9 +62,7 @@ try {
         exit;
     }
 
-    // ----------------------------------------------------
-    // 2. REPORTE GLOBAL (ADMIN, COACH, JUEZ)
-    // ----------------------------------------------------
+
     if ($action === 'tabla_global') {
         $idEvento = $_GET['id_evento'];
         $idCategoria = $_GET['id_categoria'];
@@ -79,11 +73,7 @@ try {
         exit;
     }
 
-    // ----------------------------------------------------
-    // 3. HERRAMIENTAS DE COACH (DESGLOSE)
-    // ----------------------------------------------------
-    
-    // A. Listar mis equipos evaluados
+
     if ($action === 'mis_equipos_evaluados') {
         if ($rol !== 'COACH' && $rol !== 'COACH_JUEZ') throw new Exception("Solo Coaches.");
         
@@ -93,7 +83,7 @@ try {
         exit;
     }
 
-    // B. Ver detalle específico
+    
     if ($action === 'detalle_mi_equipo') {
         if ($rol !== 'COACH' && $rol !== 'COACH_JUEZ') throw new Exception("Solo Coaches.");
 
@@ -111,9 +101,7 @@ try {
         exit;
     }
     
-    // ----------------------------------------------------
-    // 4. AUXILIAR (Obtener Rol para el Frontend)
-    // ----------------------------------------------------
+
     if ($action === 'get_session_role') {
         echo json_encode(["success" => true, "role" => $rol]);
         exit;
